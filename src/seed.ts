@@ -29,23 +29,21 @@ db.prepare("INSERT INTO tenants (id, name) VALUES (?, ?)").run(
 console.log(`  Tenant: Trident Sports Group (${tridentId})`);
 
 // ----------------------------------------------------------------
-// Destinations — one per Wave property
+// Destinations — autoincrement integer IDs, names are labels
 // ----------------------------------------------------------------
 
 const destinations = [
-  { name: "Thunderhawk Athletics" },
-  { name: "Crimson Ridge Athletics" },
-  { name: "Pacific Crest Collective" },
+  "Penn State Program",
+  "Thunderhawk Athletics",
+  "Crimson Ridge Athletics",
+  "Pacific Crest Collective",
 ];
 
-for (const dest of destinations) {
-  const id = uuid();
-  db.prepare("INSERT INTO destinations (id, tenant_id, name) VALUES (?, ?, ?)").run(
-    id,
-    tridentId,
-    dest.name
-  );
-  console.log(`  Destination: ${dest.name} (${id})`);
+for (const name of destinations) {
+  const info = db
+    .prepare("INSERT INTO destinations (tenant_id, name) VALUES (?, ?)")
+    .run(tridentId, name);
+  console.log(`  Destination: ${name} (id: ${info.lastInsertRowid})`);
 }
 
 // ----------------------------------------------------------------

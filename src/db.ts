@@ -18,7 +18,7 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS destinations (
-    id            TEXT PRIMARY KEY,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id     TEXT NOT NULL REFERENCES tenants(id),
     name          TEXT NOT NULL,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
@@ -40,7 +40,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS checkout_sessions (
     id              TEXT PRIMARY KEY,
-    destination_id  TEXT NOT NULL REFERENCES destinations(id),
+    destination_id  INTEGER NOT NULL REFERENCES destinations(id),
     amount_cents    INTEGER NOT NULL,
     fee_cents       INTEGER NOT NULL DEFAULT 0,
     currency        TEXT NOT NULL DEFAULT 'usd',
@@ -55,7 +55,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS charges (
     id              TEXT PRIMARY KEY,
-    destination_id  TEXT NOT NULL REFERENCES destinations(id),
+    destination_id  INTEGER NOT NULL REFERENCES destinations(id),
     session_id      TEXT REFERENCES checkout_sessions(id),
     amount_cents    INTEGER NOT NULL,
     fee_cents       INTEGER NOT NULL DEFAULT 0,
