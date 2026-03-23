@@ -64,6 +64,7 @@ db.exec(`
     currency        TEXT NOT NULL DEFAULT 'usd',
     reference_id    TEXT,
     status          TEXT NOT NULL DEFAULT 'completed',
+    payment_details TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
   );
 

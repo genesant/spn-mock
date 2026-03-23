@@ -172,11 +172,11 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
         <div class="row">
           <div>
             <label>Expiry</label>
-            <input type="text" placeholder="12/28" maxlength="5" value="12/28">
+            <input type="text" placeholder="12/28" maxlength="5" value="12/28" id="card-exp">
           </div>
           <div>
             <label>CVC</label>
-            <input type="text" placeholder="123" maxlength="4" value="123">
+            <input type="text" placeholder="123" maxlength="4" value="123" id="card-cvc">
           </div>
         </div>
         <label>Name on card</label>
@@ -234,28 +234,50 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
       btn.textContent = 'Processing\\u2026';
 
       try {
+        const cardForm = document.getElementById('card-form');
+        const achForm = document.getElementById('ach-form');
+        const isCard = cardForm && !cardForm.classList.contains('hidden');
+        let paymentDetails = {};
+        if (isCard) {
+          paymentDetails = {
+            method: 'card',
+            cardNumber: (document.getElementById('card-number') || {}).value || '',
+            expiry: (document.getElementById('card-exp') || {}).value || '',
+            cvc: (document.getElementById('card-cvc') || {}).value || '',
+            cardName: (document.getElementById('card-name') || {}).value || '',
+          };
+        } else {
+          paymentDetails = {
+            method: 'ach',
+            accountHolder: (document.getElementById('ach-name') || {}).value || '',
+            routing: (document.getElementById('ach-routing') || {}).value || '',
+            accountNumber: (document.getElementById('ach-account') || {}).value || '',
+          };
+        }
+
         const res = await fetch('${baseUrl}/v1/checkout-sessions/${sessionId}/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentDetails }),
         });
 
         if (!res.ok) throw new Error('Payment failed');
 
         const data = await res.json();
 
-        // Notify parent first — it will navigate away
         if (window.parent !== window) {
+          // Embedded: notify parent, stay on "Processing…"
           window.parent.postMessage({
             type: 'spn:checkout:complete',
             session_id: '${sessionId}',
             charge_id: data.charge_id,
             status: 'completed',
           }, '*');
+        } else {
+          // Standalone: show success
+          document.getElementById('form-view').classList.add('hidden');
+          document.getElementById('success-view').classList.remove('hidden');
         }
-
-        // Fallback for standalone (no parent frame)
-        document.getElementById('form-view').classList.add('hidden');
-        document.getElementById('success-view').classList.remove('hidden');
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Pay $${dollars}';

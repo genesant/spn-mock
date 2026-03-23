@@ -17,7 +17,7 @@ export function renderAdminPage(): string {
     .map(
       (c) => `
       <tr>
-        <td><code>${c.id}</code></td>
+        <td><a href="/admin/charges/${c.id}" style="color:#818cf8;text-decoration:none;"><code>${c.id}</code></a></td>
         <td>${c.tenant_name}</td>
         <td>${c.destination_name}</td>
         <td>$${((c.amount_cents as number) / 100).toFixed(2)}</td>

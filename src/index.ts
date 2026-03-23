@@ -9,6 +9,7 @@ import refundRoutes from "./routes/refunds.js";
 import webhookRoutes from "./routes/webhooks.js";
 import { renderCheckoutPage } from "./views/checkout-page.js";
 import { renderAdminPage } from "./views/admin-page.js";
+import { renderChargeDetailPage } from "./views/charge-detail-page.js";
 import { fireWebhook } from "./routes/webhooks.js";
 import { v4 as uuid } from "uuid";
 
@@ -55,13 +56,14 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
     return;
   }
 
+  const paymentDetails = req.body?.paymentDetails ?? null;
   const chargeId = `ch_${uuid().replace(/-/g, "")}`;
   const netCents = (session.amount_cents as number) - (session.fee_cents as number);
 
   const complete = db.transaction(() => {
     db.prepare(
-      `INSERT INTO charges (id, destination_id, session_id, amount_cents, fee_cents, net_cents, currency, reference_id, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed')`
+      `INSERT INTO charges (id, destination_id, session_id, amount_cents, fee_cents, net_cents, currency, reference_id, status, payment_details)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)`
     ).run(
       chargeId,
       session.destination_id,
@@ -70,7 +72,8 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
       session.fee_cents,
       netCents,
       session.currency,
-      session.reference_id
+      session.reference_id,
+      paymentDetails ? JSON.stringify(paymentDetails) : null
     );
 
     db.prepare(
@@ -116,6 +119,16 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
 /** Admin dashboard -- mock only, no auth. */
 app.get("/admin", (_req, res) => {
   res.type("html").send(renderAdminPage());
+});
+
+/** Charge detail -- mock only, no auth. */
+app.get("/admin/charges/:chargeId", (req, res) => {
+  const html = renderChargeDetailPage(req.params.chargeId);
+  if (!html) {
+    res.status(404).send("Charge not found.");
+    return;
+  }
+  res.type("html").send(html);
 });
 
 // ----------------------------------------------------------------
