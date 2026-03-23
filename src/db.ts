@@ -49,6 +49,7 @@ db.exec(`
     cancel_url      TEXT,
     status          TEXT NOT NULL DEFAULT 'pending',
     charge_id       TEXT,
+    allowed_payment_types TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
   );

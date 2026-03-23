@@ -11,6 +11,17 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
   const dollars = ((session.amount_cents as number) / 100).toFixed(2);
   const currency = (session.currency as string).toUpperCase();
 
+  let allowedTypes: string[] = ["card", "ach"];
+  if (session.allowed_payment_types) {
+    try {
+      allowedTypes = JSON.parse(session.allowed_payment_types as string);
+    } catch {}
+  }
+
+  const showCard = allowedTypes.includes("card");
+  const showAch = allowedTypes.includes("ach");
+  const showTabs = showCard && showAch;
+
   return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -74,6 +85,32 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
     input:focus { outline: none; border-color: #4f46e5; }
     .row { display: flex; gap: 12px; }
     .row > div { flex: 1; }
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #f7f8fa;
+      color: #888;
+      border: none;
+      transition: all 0.15s;
+    }
+    .tab.active {
+      background: #fff;
+      color: #1a1a2e;
+      box-shadow: inset 0 -2px 0 #4f46e5;
+    }
+    .tab:not(:last-child) { border-right: 1px solid #ddd; }
     .pay-btn {
       width: 100%;
       padding: 14px;
@@ -122,25 +159,41 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
       <div class="subtitle">Secure checkout</div>
       <div class="amount">$${dollars} <small>${currency}</small></div>
 
-      <label>Card number</label>
-      <input type="text" placeholder="4242 4242 4242 4242" maxlength="19" id="card-number" value="4242 4242 4242 4242">
+      ${showTabs ? `
+      <div class="tabs">
+        <button class="tab active" id="tab-card" onclick="switchTab('card')">Credit / Debit Card</button>
+        <button class="tab" id="tab-ach" onclick="switchTab('ach')">Bank Account</button>
+      </div>
+      ` : ""}
 
-      <div class="row">
-        <div>
-          <label>Expiry</label>
-          <input type="text" placeholder="12/28" maxlength="5" value="12/28">
+      <div id="card-form" class="${showCard ? "" : "hidden"}">
+        <label>Card number</label>
+        <input type="text" placeholder="4242 4242 4242 4242" maxlength="19" id="card-number" value="4242 4242 4242 4242">
+        <div class="row">
+          <div>
+            <label>Expiry</label>
+            <input type="text" placeholder="12/28" maxlength="5" value="12/28">
+          </div>
+          <div>
+            <label>CVC</label>
+            <input type="text" placeholder="123" maxlength="4" value="123">
+          </div>
         </div>
-        <div>
-          <label>CVC</label>
-          <input type="text" placeholder="123" maxlength="4" value="123">
-        </div>
+        <label>Name on card</label>
+        <input type="text" placeholder="Jane Smith" id="card-name">
       </div>
 
-      <label>Name on card</label>
-      <input type="text" placeholder="Jane Smith" id="card-name">
+      <div id="ach-form" class="${showAch && !showCard ? "" : "hidden"}">
+        <label>Account holder name</label>
+        <input type="text" placeholder="Jane Smith" id="ach-name">
+        <label>Routing number</label>
+        <input type="text" placeholder="021000021" maxlength="9" id="ach-routing" value="021000021">
+        <label>Account number</label>
+        <input type="text" placeholder="123456789" maxlength="17" id="ach-account" value="123456789">
+      </div>
 
       <button class="pay-btn" id="pay-btn" onclick="handlePay()">Pay $${dollars}</button>
-      <div class="secure">🔒 Secured by SportPassNIL</div>
+      <div class="secure">&#128274; Secured by SportPassNIL</div>
     </div>
 
     <div id="success-view" class="hidden">
@@ -157,10 +210,28 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
   </div>
 
   <script>
+    function switchTab(type) {
+      const cardForm = document.getElementById('card-form');
+      const achForm = document.getElementById('ach-form');
+      const tabCard = document.getElementById('tab-card');
+      const tabAch = document.getElementById('tab-ach');
+      if (type === 'card') {
+        cardForm.classList.remove('hidden');
+        achForm.classList.add('hidden');
+        tabCard.classList.add('active');
+        tabAch.classList.remove('active');
+      } else {
+        cardForm.classList.add('hidden');
+        achForm.classList.remove('hidden');
+        tabCard.classList.remove('active');
+        tabAch.classList.add('active');
+      }
+    }
+
     async function handlePay() {
       const btn = document.getElementById('pay-btn');
       btn.disabled = true;
-      btn.textContent = 'Processing…';
+      btn.textContent = 'Processing\\u2026';
 
       try {
         const res = await fetch('${baseUrl}/v1/checkout-sessions/${sessionId}/complete', {
@@ -175,7 +246,6 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
         document.getElementById('form-view').classList.add('hidden');
         document.getElementById('success-view').classList.remove('hidden');
 
-        // Notify parent window
         if (window.parent !== window) {
           window.parent.postMessage({
             type: 'spn:checkout:complete',

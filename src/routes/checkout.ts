@@ -9,7 +9,7 @@ const SPN_BASE_URL = process.env.SPN_BASE_URL || "http://localhost:4100";
 
 /** POST /v1/checkout-sessions */
 router.post("/", (req: Request, res: Response): void => {
-  const { destination_id, amount_cents, fee_cents, currency, reference_id, success_url, cancel_url } =
+  const { destination_id, amount_cents, fee_cents, currency, reference_id, success_url, cancel_url, allowed_payment_types } =
     req.body;
 
   if (!destination_id || amount_cents == null) {
@@ -26,8 +26,8 @@ router.post("/", (req: Request, res: Response): void => {
 
   db.prepare(
     `INSERT INTO checkout_sessions
-       (id, destination_id, amount_cents, fee_cents, currency, reference_id, success_url, cancel_url, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`
+       (id, destination_id, amount_cents, fee_cents, currency, reference_id, success_url, cancel_url, allowed_payment_types, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`
   ).run(
     id,
     destination_id,
@@ -36,11 +36,12 @@ router.post("/", (req: Request, res: Response): void => {
     currency ?? "usd",
     reference_id ?? null,
     success_url ?? null,
-    cancel_url ?? null
+    cancel_url ?? null,
+    allowed_payment_types ? JSON.stringify(allowed_payment_types) : null
   );
 
-  const session = db.prepare("SELECT * FROM checkout_sessions WHERE id = ?").get(id);
-
+  const session = db.prepare("SELECT * FROM checkout_sessions WHERE id = ?").get(id) as Record<string, unknown>;
+  
   res.status(201).json({
     ...session,
     iframe_url: `${SPN_BASE_URL}/checkout/${id}`,
