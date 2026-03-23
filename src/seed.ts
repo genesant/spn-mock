@@ -16,35 +16,26 @@ db.exec(`
 `);
 
 // ----------------------------------------------------------------
-// Tenants — mirror Wave's tenant structure
+// Tenant — mirrors Wave's tenant structure
 // ----------------------------------------------------------------
 
-const tridentId = uuid();
+const blueprintId = uuid();
 
 db.prepare("INSERT INTO tenants (id, name) VALUES (?, ?)").run(
-  tridentId,
-  "Trident Sports Group"
+  blueprintId,
+  "Blueprint Sports and Entertainment LLC"
 );
 
-console.log(`  Tenant: Trident Sports Group (${tridentId})`);
+console.log(`  Tenant: Blueprint Sports and Entertainment LLC (${blueprintId})`);
 
 // ----------------------------------------------------------------
-// Destinations — autoincrement integer IDs, names are labels
+// Destinations — one per Wave property that needs checkout
 // ----------------------------------------------------------------
 
-const destinations = [
-  "Penn State Program",
-  "Thunderhawk Athletics",
-  "Crimson Ridge Athletics",
-  "Pacific Crest Collective",
-];
-
-for (const name of destinations) {
-  const info = db
-    .prepare("INSERT INTO destinations (tenant_id, name) VALUES (?, ?)")
-    .run(tridentId, name);
-  console.log(`  Destination: ${name} (id: ${info.lastInsertRowid})`);
-}
+const info = db
+  .prepare("INSERT INTO destinations (tenant_id, name) VALUES (?, ?)")
+  .run(blueprintId, "Happy Valley United");
+console.log(`  Destination: Happy Valley United (id: ${info.lastInsertRowid})`);
 
 // ----------------------------------------------------------------
 // API key — Wave's platform key
@@ -59,7 +50,7 @@ db.prepare(
 
 db.prepare(
   "INSERT INTO api_key_tenants (api_key_id, tenant_id) VALUES (?, ?)"
-).run(apiKeyId, tridentId);
+).run(apiKeyId, blueprintId);
 
 console.log("");
 console.log("  +-----------------------------------------+");

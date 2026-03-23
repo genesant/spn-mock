@@ -243,9 +243,7 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
 
         const data = await res.json();
 
-        document.getElementById('form-view').classList.add('hidden');
-        document.getElementById('success-view').classList.remove('hidden');
-
+        // Notify parent first — it will navigate away
         if (window.parent !== window) {
           window.parent.postMessage({
             type: 'spn:checkout:complete',
@@ -254,6 +252,10 @@ export function renderCheckoutPage(sessionId: string, baseUrl: string): string |
             status: 'completed',
           }, '*');
         }
+
+        // Fallback for standalone (no parent frame)
+        document.getElementById('form-view').classList.add('hidden');
+        document.getElementById('success-view').classList.remove('hidden');
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Pay $${dollars}';
