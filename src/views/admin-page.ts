@@ -24,7 +24,11 @@ export function renderAdminPage(): string {
         <td>$${((c.fee_cents as number) / 100).toFixed(2)}</td>
         <td>$${((c.net_cents as number) / 100).toFixed(2)}</td>
         <td><code>${c.reference_id || "—"}</code></td>
-        <td><span class="badge">${c.status}</span></td>
+
+        <td>
+          <span class="badge ${c.status === "processing" ? "badge-processing" : ""}">${c.status}</span>
+          ${c.status === "processing" ? ` <button class="settle-btn" onclick="settle('${c.id}')">Settle</button>` : ""}
+        </td>
         <td>${c.created_at}</td>
       </tr>`
     )
@@ -104,6 +108,20 @@ export function renderAdminPage(): string {
       cursor: pointer;
     }
     .refresh:hover { background: #2a2a3d; }
+    .badge-processing { background: #92400e; color: #fbbf24; }
+    .settle-btn {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #1e40af;
+      color: #93c5fd;
+      border: none;
+      cursor: pointer;
+    }
+    .settle-btn:hover { background: #1d4ed8; }
   </style>
 </head>
 <body>
@@ -138,7 +156,13 @@ export function renderAdminPage(): string {
     </table>`
   }
 
-  <script>setTimeout(() => location.reload(), 30000);</script>
+  <script>
+    async function settle(chargeId) {
+      await fetch('/admin/charges/' + chargeId + '/settle', { method: 'POST' });
+      location.reload();
+    }
+    setTimeout(() => location.reload(), 30000);
+  </script>
 </body>
 </html>`;
 }

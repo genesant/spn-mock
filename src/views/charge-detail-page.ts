@@ -107,6 +107,20 @@ export function renderChargeDetailPage(chargeId: string): string | null {
       margin-bottom: 4px;
     }
     .amount-hero small { font-size: 14px; color: #888; font-weight: 400; }
+    .badge-processing { background: #92400e; color: #fbbf24; }
+    .settle-btn {
+      display: inline-block;
+      margin-left: 12px;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #1e40af;
+      color: #93c5fd;
+      border: none;
+      cursor: pointer;
+    }
+    .settle-btn:hover { background: #1d4ed8; }
   </style>
 </head>
 <body>
@@ -116,7 +130,8 @@ export function renderChargeDetailPage(chargeId: string): string | null {
 
   <div class="card">
     <div class="amount-hero">$${dollars} <small>${(charge.currency as string).toUpperCase()}</small></div>
-    <span class="badge">${charge.status}</span>
+    <span class="badge ${charge.status === "processing" ? "badge-processing" : ""}">${charge.status}</span>
+    ${charge.status === "processing" ? `<button class="settle-btn" onclick="settle('${charge.id}')">Settle ACH</button>` : ""}
   </div>
 
   <div class="card">
@@ -148,6 +163,13 @@ export function renderChargeDetailPage(chargeId: string): string | null {
     ${!isCard && method === "ach" ? row("Account Number", fullAccount) : ""}
     ${Object.keys(details).length === 0 ? '<div class="row"><span class="label">No payment details captured</span></div>' : ""}
   </div>
+
+  <script>
+    async function settle(chargeId) {
+      await fetch('/admin/charges/' + chargeId + '/settle', { method: 'POST' });
+      location.reload();
+    }
+  </script>
 </body>
 </html>`;
 }

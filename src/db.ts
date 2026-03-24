@@ -29,6 +29,7 @@ db.exec(`
     key           TEXT NOT NULL UNIQUE,
     label         TEXT NOT NULL,
     webhook_url   TEXT,
+    webhook_secret TEXT,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -50,6 +51,7 @@ db.exec(`
     status          TEXT NOT NULL DEFAULT 'pending',
     charge_id       TEXT,
     allowed_payment_types TEXT,
+    expires_at      TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
   );

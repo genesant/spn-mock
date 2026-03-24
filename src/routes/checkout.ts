@@ -23,11 +23,12 @@ router.post("/", (req: Request, res: Response): void => {
   }
 
   const id = `cs_${uuid().replace(/-/g, "")}`;
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
   db.prepare(
     `INSERT INTO checkout_sessions
-       (id, destination_id, amount_cents, fee_cents, currency, reference_id, success_url, cancel_url, allowed_payment_types, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`
+       (id, destination_id, amount_cents, fee_cents, currency, reference_id, success_url, cancel_url, allowed_payment_types, expires_at, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`
   ).run(
     id,
     destination_id,
@@ -37,7 +38,8 @@ router.post("/", (req: Request, res: Response): void => {
     reference_id ?? null,
     success_url ?? null,
     cancel_url ?? null,
-    allowed_payment_types ? JSON.stringify(allowed_payment_types) : null
+    allowed_payment_types ? JSON.stringify(allowed_payment_types) : null,
+    expiresAt
   );
 
   const session = db.prepare("SELECT * FROM checkout_sessions WHERE id = ?").get(id) as Record<string, unknown>;

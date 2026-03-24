@@ -1,21 +1,37 @@
 import { Router, type Request, type Response } from "express";
+import { createHmac } from "node:crypto";
 import db from "../db.js";
 
 const router = Router();
 
-/** Fire a webhook to the registered URL for this API key. Best-effort, no retries. */
+/** Sign and fire a webhook to the registered URL for this API key. */
 export async function fireWebhook(apiKeyId: string, payload: Record<string, unknown>): Promise<void> {
-  const row = db.prepare("SELECT webhook_url FROM api_keys WHERE id = ?").get(apiKeyId) as
-    | { webhook_url: string | null }
+  const row = db.prepare("SELECT webhook_url, webhook_secret FROM api_keys WHERE id = ?").get(apiKeyId) as
+    | { webhook_url: string | null; webhook_secret: string | null }
     | undefined;
 
   if (!row?.webhook_url) return;
 
+  const body = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (row.webhook_secret) {
+    const signedPayload = timestamp + "." + body;
+    const signature = createHmac("sha256", row.webhook_secret)
+      .update(signedPayload)
+      .digest("hex");
+    headers["SPN-Signature"] = "t=" + timestamp + ",v1=" + signature;
+  }
+
   try {
     await fetch(row.webhook_url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers,
+      body,
     });
     console.log(`[webhook] ${payload.event} -> ${row.webhook_url}`);
   } catch (err) {

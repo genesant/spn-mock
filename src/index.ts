@@ -24,8 +24,24 @@ app.use(express.json());
 // Public routes -- no API key required
 // ----------------------------------------------------------------
 
-/** Checkout iframe page -- served to the sponsor's browser. */
+/** Checkout iframe page -- check expiration before rendering. */
 app.get("/checkout/:sessionId", (req, res) => {
+  const session = db
+    .prepare("SELECT * FROM checkout_sessions WHERE id = ?")
+    .get(req.params.sessionId) as Record<string, unknown> | undefined;
+
+  if (!session || session.status !== "pending") {
+    res.status(404).send("Session not found or already completed.");
+    return;
+  }
+
+  if (session.expires_at && new Date(session.expires_at as string) < new Date()) {
+    db.prepare("UPDATE checkout_sessions SET status = 'expired', updated_at = datetime('now') WHERE id = ?")
+      .run(req.params.sessionId);
+    res.status(410).send("This checkout session has expired.");
+    return;
+  }
+
   const html = renderCheckoutPage(req.params.sessionId, BASE_URL);
   if (!html) {
     res.status(404).send("Session not found or already completed.");
@@ -37,9 +53,9 @@ app.get("/checkout/:sessionId", (req, res) => {
 /**
  * POST /v1/checkout-sessions/:id/complete -- MOCK ONLY.
  *
- * Called by the iframe (no API key in browser). In production SPN this
- * would be an internal call from SPN's own checkout frontend to its
- * own backend. We expose it publicly in the mock for simplicity.
+ * For card: creates charge as 'completed', fires charge.completed webhook.
+ * For ACH: creates charge as 'processing', fires charge.processing webhook.
+ *   Admin settles via POST /admin/charges/:id/settle.
  */
 app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
   const session = db
@@ -56,14 +72,24 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
     return;
   }
 
+  if (session.expires_at && new Date(session.expires_at as string) < new Date()) {
+    db.prepare("UPDATE checkout_sessions SET status = 'expired', updated_at = datetime('now') WHERE id = ?")
+      .run(req.params.id);
+    res.status(410).json({ error: "Session expired" });
+    return;
+  }
+
   const paymentDetails = req.body?.paymentDetails ?? null;
+  const paymentMethod = paymentDetails?.method ?? "card";
+  const isAch = paymentMethod === "ach";
+  const chargeStatus = isAch ? "processing" : "completed";
   const chargeId = `ch_${uuid().replace(/-/g, "")}`;
   const netCents = (session.amount_cents as number) - (session.fee_cents as number);
 
   const complete = db.transaction(() => {
     db.prepare(
       `INSERT INTO charges (id, destination_id, session_id, amount_cents, fee_cents, net_cents, currency, reference_id, status, payment_details)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       chargeId,
       session.destination_id,
@@ -73,6 +99,7 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
       netCents,
       session.currency,
       session.reference_id,
+      chargeStatus,
       paymentDetails ? JSON.stringify(paymentDetails) : null
     );
 
@@ -100,13 +127,16 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
       .get(dest.tenant_id) as { id: string } | undefined;
 
     if (keyRow) {
+      const webhookEvent = isAch ? "charge.processing" : "charge.completed";
       fireWebhook(keyRow.id, {
-        event: "charge.completed",
+        event: webhookEvent,
         charge_id: chargeId,
         destination_id: session.destination_id as string,
         amount_cents: session.amount_cents as number,
         fee_cents: session.fee_cents as number,
         net_cents: netCents,
+        currency: session.currency as string,
+        payment_method: paymentMethod,
         reference_id: session.reference_id as string | null,
         created_at: new Date().toISOString(),
       });
@@ -114,6 +144,69 @@ app.post("/v1/checkout-sessions/:id/complete", (req, res) => {
   }
 
   res.json(updated);
+});
+
+/**
+ * POST /admin/charges/:id/settle -- MOCK ONLY.
+ *
+ * Settles a 'processing' ACH charge: flips to 'completed',
+ * fires charge.completed webhook.
+ */
+app.post("/admin/charges/:chargeId/settle", (req, res) => {
+  const charge = db
+    .prepare("SELECT * FROM charges WHERE id = ?")
+    .get(req.params.chargeId) as Record<string, unknown> | undefined;
+
+  if (!charge) {
+    res.status(404).json({ error: "Charge not found" });
+    return;
+  }
+
+  if (charge.status !== "processing") {
+    res.status(409).json({ error: `Charge is ${charge.status}, not processing` });
+    return;
+  }
+
+  db.prepare("UPDATE charges SET status = 'completed' WHERE id = ?")
+    .run(req.params.chargeId);
+
+  // Fire charge.completed webhook
+  const dest = db
+    .prepare("SELECT tenant_id FROM destinations WHERE id = ?")
+    .get(charge.destination_id as string) as { tenant_id: string } | undefined;
+
+  if (dest) {
+    const keyRow = db
+      .prepare(
+        `SELECT ak.id FROM api_keys ak
+         JOIN api_key_tenants akt ON akt.api_key_id = ak.id
+         WHERE akt.tenant_id = ? LIMIT 1`
+      )
+      .get(dest.tenant_id) as { id: string } | undefined;
+
+    if (keyRow) {
+      fireWebhook(keyRow.id, {
+        event: "charge.completed",
+        charge_id: charge.id as string,
+        destination_id: charge.destination_id as string,
+        amount_cents: charge.amount_cents as number,
+        fee_cents: charge.fee_cents as number,
+        net_cents: charge.net_cents as number,
+        currency: charge.currency as string,
+        payment_method: (() => {
+          try {
+            return JSON.parse(charge.payment_details as string)?.method ?? "ach";
+          } catch {
+            return "ach";
+          }
+        })(),
+        reference_id: charge.reference_id as string | null,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  res.json({ settled: true, charge_id: req.params.chargeId });
 });
 
 /** Admin dashboard -- mock only, no auth. */
