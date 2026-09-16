@@ -1,0 +1,3 @@
+# Standalone workspace root: keeps the CDK app's dependencies out of the application's lockfile
+# (the Dockerfile installs only the root package).
+packages: []

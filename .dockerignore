@@ -1,0 +1,8 @@
+node_modules
+dist
+infra
+.git
+.idea
+*.db
+*.db-shm
+*.db-wal

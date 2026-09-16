@@ -1,9 +1,12 @@
 import Database from "better-sqlite3";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, "..", "spn.db");
+// SPN_DB_PATH lets a deployment keep the database on a mounted volume; default is the repo root as before.
+const DB_PATH = process.env.SPN_DB_PATH || path.join(__dirname, "..", "spn.db");
+mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
 
