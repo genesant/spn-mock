@@ -29,9 +29,13 @@ export const PIPELINE = {
   github: { owner: "genesant", repo: "spn-mock", branch: "main" },
   /** Shared CodeConnections connection to the Genesant GitHub org (tools account). */
   connectionArn: "arn:aws:codeconnections:us-east-1:100025280990:connection/c9f5d4e0-0576-48f3-b179-41bc9a07eed2",
-  /** Stages the mock is deployed to, in order. Drop "prod" once production talks to the real SPN. */
-  stages: ["dev", "qa", "prod"] as Stage[],
-  manualApprovalBefore: ["qa", "prod"] as Stage[],
+  /**
+   * Stages the mock is deployed to. Dev only: it exists to exercise the wave payment flow while the real
+   * Sport Pass billing API does not exist yet; it never goes to production. Add "qa" here (and to
+   * `manualApprovalBefore`) if QA needs the payment step on their environment.
+   */
+  stages: ["dev"] as Stage[],
+  manualApprovalBefore: [] as Stage[],
   alertEmails: ["masha.kastenka@celadonsoft.com"],
 };
 

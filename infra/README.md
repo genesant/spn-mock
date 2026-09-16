@@ -6,7 +6,7 @@ by a pipeline in the tools account from this repository.
 
 | Stack | Account | Contents |
 |---|---|---|
-| `spn-mock-pipeline` | tools (100025280990) | ECR repository, CodePipeline: GitHub → build → dev → [approval] qa → [approval] prod |
+| `spn-mock-pipeline` | tools (100025280990) | ECR repository, CodePipeline: GitHub → build image → deploy to dev |
 | `spn-mock-<stage>` | stage | ECS task + service, target group, ALB rules, credentials in Secrets Manager, log group, deployment role |
 
 Accounts, domains and the GitHub connection are in `lib/config.ts`.
@@ -42,6 +42,6 @@ pnpm exec cdk deploy spn-mock-<stage> --profile <stage profile>
 Checks: `GET https://spn-mock.<domain>/health` → 200; `/admin` → redirect to the Cognito login;
 `/v1/destinations` with `Authorization: Bearer <api key>` → the seeded destination.
 
-Later: pushes to `main` deploy to dev automatically; qa and prod wait for approval in CodePipeline.
-Infrastructure changes are applied with `cdk deploy` from this folder. Remove `"prod"` from `PIPELINE.stages`
-once production talks to the real SPN.
+Later: pushes to `main` deploy to dev automatically. The mock runs on dev only (no qa, never prod).
+Infrastructure changes are applied with `cdk deploy` from this folder. Add `"qa"` to `PIPELINE.stages` and `manualApprovalBefore`
+if QA ever needs the payment step on their environment.
