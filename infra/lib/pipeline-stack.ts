@@ -79,6 +79,7 @@ export class PipelineStack extends cdk.Stack {
       cache: codebuild.Cache.local(codebuild.LocalCacheMode.DOCKER_LAYER),
       buildSpec: codebuild.BuildSpec.fromObject({
         version: "0.2",
+        env: { shell: "bash" },
         phases: {
           build: {
             commands: [
@@ -128,6 +129,7 @@ export class PipelineStack extends cdk.Stack {
         },
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
+          env: { shell: "bash" },
           phases: {
             build: {
               commands: [
