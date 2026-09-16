@@ -24,6 +24,11 @@ app.use(express.json());
 // Public routes -- no API key required
 // ----------------------------------------------------------------
 
+/** Liveness check for load balancers / orchestrators. */
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 /** Checkout iframe page -- check expiration before rendering. */
 app.get("/checkout/:sessionId", (req, res) => {
   const session = db
